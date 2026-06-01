@@ -98,6 +98,24 @@ body {
 }
 .remove-photo:hover { background: #dc3545; }
 
+/* ── OR divider ── */
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #adb5bd;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.or-divider::before,
+.or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #dee2e6;
+}
+
 /* ── AI badge ── */
 .ai-badge {
   background: #fffbea;

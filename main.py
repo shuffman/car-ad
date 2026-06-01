@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 load_dotenv()
 
+from gdrive import fetch_images_from_drive
 from image_processor import enhance_image
 from text_generator import generate_listing
 
@@ -56,6 +57,7 @@ async def process(
     engine: str = Form(""),
     features: str = Form(""),
     notes: str = Form(""),
+    gdrive_url: str = Form(""),
     images: List[UploadFile] = File(default=[]),
 ):
     car_info = {
@@ -77,7 +79,7 @@ async def process(
     }
 
     loop = asyncio.get_event_loop()
-    enhanced_images: list[bytes] = []
+    drive_error: Optional[str] = None
 
     async def _process_one(upload: UploadFile) -> Optional[bytes]:
         if not upload.filename:
@@ -90,9 +92,27 @@ async def process(
         except Exception:
             return None
 
-    tasks = [_process_one(img) for img in images]
-    raw_results = await asyncio.gather(*tasks)
-    enhanced_images = [r for r in raw_results if r is not None]
+    async def _fetch_and_enhance_drive() -> list[bytes]:
+        nonlocal drive_error
+        if not gdrive_url.strip():
+            return []
+        try:
+            raw_list, _ = await loop.run_in_executor(
+                _executor, fetch_images_from_drive, gdrive_url.strip()
+            )
+        except ValueError as e:
+            drive_error = str(e)
+            return []
+        tasks = [loop.run_in_executor(_executor, enhance_image, raw) for raw in raw_list]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return [r for r in results if isinstance(r, bytes)]
+
+    # Run uploaded-photo enhancement and Drive download concurrently
+    upload_coros = [_process_one(img) for img in images]
+    all_results = await asyncio.gather(*upload_coros, _fetch_and_enhance_drive())
+
+    enhanced_images: list[bytes] = [r for r in all_results[:-1] if r is not None]
+    enhanced_images.extend(all_results[-1])  # drive images appended after uploads
 
     b64_for_claude = [base64.b64encode(img).decode() for img in enhanced_images[:4]]
 
@@ -106,6 +126,7 @@ async def process(
         "car_info": car_info,
         "images": enhanced_images,
         "listing_text": listing_text,
+        "drive_error": drive_error,
     }
 
     return RedirectResponse(url=f"/result/{result_id}", status_code=303)
@@ -124,6 +145,7 @@ async def result_page(request: Request, result_id: str):
             "car_info": data["car_info"],
             "image_count": len(data["images"]),
             "listing_text": data["listing_text"],
+            "drive_error": data.get("drive_error"),
         },
     )
 
