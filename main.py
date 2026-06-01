@@ -17,6 +17,7 @@ load_dotenv()
 
 from gdrive import fetch_files_from_drive
 from image_processor import enhance_image, resize_for_analysis
+from publisher import deploy_listing
 from text_generator import analyze_car_photos, generate_listing
 
 _executor = ThreadPoolExecutor(max_workers=4)
@@ -195,6 +196,24 @@ async def analyze(
         return JSONResponse(detected)
     except Exception as e:
         return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)
+
+
+@app.post("/deploy/{result_id}")
+async def deploy(result_id: str):
+    data = _results.get(result_id)
+    if not data:
+        return JSONResponse({"error": "Result not found or expired."}, status_code=404)
+    try:
+        url = await deploy_listing(
+            car_info=data["car_info"],
+            enhanced_images=data["images"],
+            listing_text=data["listing_text"],
+        )
+        return JSONResponse({"url": url})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": f"Deploy failed: {e}"}, status_code=500)
 
 
 @app.get("/result/{result_id}", response_class=HTMLResponse)

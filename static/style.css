@@ -240,6 +240,12 @@ body {
 .listing-prose p { margin-bottom: 0.9rem; }
 .listing-prose strong { color: #1a2340; }
 
+/* ── Deploy bar ── */
+.deploy-bar {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+}
+
 /* ── Print ── */
 @media print {
   .site-header, .success-bar, footer,

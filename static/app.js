@@ -280,4 +280,40 @@ if (typeof RAW_LISTING !== 'undefined') {
       openLightbox(parseInt(item.dataset.index));
     });
   });
+
+  // ── Deploy to forsale ──
+  const deployBtn = document.getElementById('deployBtn');
+  const deployResult = document.getElementById('deployResult');
+
+  if (deployBtn) {
+    deployBtn.addEventListener('click', async () => {
+      deployBtn.disabled = true;
+      deployBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Publishing…';
+      deployResult.className = 'mt-3';
+      deployResult.innerHTML = '<div class="text-muted small">Uploading photos and pushing to GitHub — this takes about 20–40 seconds…</div>';
+
+      try {
+        const res = await fetch(`/deploy/${RESULT_ID}`, { method: 'POST' });
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        deployResult.innerHTML =
+          `<div class="alert alert-success d-flex align-items-center gap-3 mb-0">` +
+          `<i class="bi bi-check-circle-fill fs-4"></i>` +
+          `<div>` +
+          `<div class="fw-semibold">Published!</div>` +
+          `<div class="small">Live at <a href="${data.url}" target="_blank" class="alert-link">${data.url}</a>` +
+          ` — GitHub Pages may take up to 60 seconds to reflect the change.</div>` +
+          `</div></div>`;
+        deployBtn.innerHTML = '<i class="bi bi-check2 me-2"></i>Published';
+        deployBtn.classList.replace('btn-dark', 'btn-success');
+      } catch (err) {
+        deployResult.innerHTML =
+          `<div class="alert alert-danger mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>${err.message}</div>`;
+        deployBtn.disabled = false;
+        deployBtn.innerHTML = '<i class="bi bi-cloud-arrow-up me-2"></i>Retry';
+      }
+    });
+  }
 }
