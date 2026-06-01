@@ -102,9 +102,7 @@ async def process(
         if not gdrive_url.strip():
             return [], []
         try:
-            imgs, docs, _ = await loop.run_in_executor(
-                _executor, fetch_files_from_drive, gdrive_url.strip()
-            )
+            imgs, docs, _ = await fetch_files_from_drive(gdrive_url.strip())
         except ValueError as e:
             drive_error = str(e)
             return [], []
@@ -170,9 +168,7 @@ async def analyze(
     # Supplement with Drive files if a URL was provided
     if gdrive_url.strip():
         try:
-            drive_imgs, drive_docs, _ = await loop.run_in_executor(
-                _executor, fetch_files_from_drive, gdrive_url.strip()
-            )
+            drive_imgs, drive_docs, _ = await fetch_files_from_drive(gdrive_url.strip())
             raw_images.extend(drive_imgs)
             raw_pdfs.extend(drive_docs)
         except ValueError as e:
