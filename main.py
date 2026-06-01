@@ -15,7 +15,7 @@ from fastapi.templating import Jinja2Templates
 
 load_dotenv()
 
-from gdrive import fetch_images_from_drive
+from gdrive import fetch_files_from_drive
 from image_processor import enhance_image, resize_for_analysis
 from text_generator import analyze_car_photos, generate_listing
 
@@ -81,43 +81,56 @@ async def process(
     loop = asyncio.get_event_loop()
     drive_error: Optional[str] = None
 
-    async def _process_one(upload: UploadFile) -> Optional[bytes]:
+    async def _process_upload(upload: UploadFile) -> tuple[str, Optional[bytes]]:
+        """Returns ('image'|'pdf'|'skip', bytes|None)."""
         if not upload.filename:
-            return None
+            return 'skip', None
         try:
             raw = await upload.read()
             if not raw:
-                return None
-            return await loop.run_in_executor(_executor, enhance_image, raw)
+                return 'skip', None
+            ext = upload.filename.rsplit('.', 1)[-1].lower()
+            if ext == 'pdf' or raw[:4] == b'%PDF':
+                return 'pdf', raw
+            return 'image', await loop.run_in_executor(_executor, enhance_image, raw)
         except Exception:
-            return None
+            return 'skip', None
 
-    async def _fetch_and_enhance_drive() -> list[bytes]:
+    async def _fetch_drive() -> tuple[list[bytes], list[bytes]]:
         nonlocal drive_error
         if not gdrive_url.strip():
-            return []
+            return [], []
         try:
-            raw_list, _ = await loop.run_in_executor(
-                _executor, fetch_images_from_drive, gdrive_url.strip()
+            imgs, docs, _ = await loop.run_in_executor(
+                _executor, fetch_files_from_drive, gdrive_url.strip()
             )
         except ValueError as e:
             drive_error = str(e)
-            return []
-        tasks = [loop.run_in_executor(_executor, enhance_image, raw) for raw in raw_list]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        return [r for r in results if isinstance(r, bytes)]
+            return [], []
+        enhance_tasks = [loop.run_in_executor(_executor, enhance_image, r) for r in imgs]
+        enhanced = await asyncio.gather(*enhance_tasks, return_exceptions=True)
+        return [r for r in enhanced if isinstance(r, bytes)], docs
 
-    # Run uploaded-photo enhancement and Drive download concurrently
-    upload_coros = [_process_one(img) for img in images]
-    all_results = await asyncio.gather(*upload_coros, _fetch_and_enhance_drive())
+    upload_coros = [_process_upload(img) for img in images]
+    all_results = await asyncio.gather(*upload_coros, _fetch_drive())
 
-    enhanced_images: list[bytes] = [r for r in all_results[:-1] if r is not None]
-    enhanced_images.extend(all_results[-1])  # drive images appended after uploads
+    enhanced_images: list[bytes] = []
+    uploaded_pdfs: list[bytes] = []
+    for kind, data in all_results[:-1]:
+        if kind == 'image' and data:
+            enhanced_images.append(data)
+        elif kind == 'pdf' and data:
+            uploaded_pdfs.append(data)
 
-    b64_for_claude = [base64.b64encode(img).decode() for img in enhanced_images[:4]]
+    drive_images, drive_pdfs = all_results[-1]
+    enhanced_images.extend(drive_images)
+    all_pdfs = uploaded_pdfs + drive_pdfs
+
+    img_b64 = [base64.b64encode(img).decode() for img in enhanced_images[:4]]
+    pdf_b64 = [base64.b64encode(doc).decode() for doc in all_pdfs[:5]]
 
     try:
-        listing_text = await generate_listing(car_info, b64_for_claude)
+        listing_text = await generate_listing(car_info, img_b64, pdf_b64 or None)
     except Exception as e:
         listing_text = f"*(Listing generation failed: {e}. Please check your ANTHROPIC_API_KEY.)*"
 
@@ -125,6 +138,7 @@ async def process(
     _results[result_id] = {
         "car_info": car_info,
         "images": enhanced_images,
+        "pdfs": all_pdfs,
         "listing_text": listing_text,
         "drive_error": drive_error,
     }
@@ -139,40 +153,45 @@ async def analyze(
 ):
     loop = asyncio.get_event_loop()
     raw_images: list[bytes] = []
+    raw_pdfs: list[bytes] = []
 
     for upload in images:
-        if upload.filename:
-            raw = await upload.read()
-            if raw:
-                raw_images.append(raw)
+        if not upload.filename:
+            continue
+        raw = await upload.read()
+        if not raw:
+            continue
+        if raw[:4] == b'%PDF' or upload.filename.lower().endswith('.pdf'):
+            raw_pdfs.append(raw)
+        else:
+            raw_images.append(raw)
 
-    # If no direct uploads, try Drive URL
-    if not raw_images and gdrive_url.strip():
+    # Supplement with Drive files if a URL was provided
+    if gdrive_url.strip():
         try:
-            drive_imgs, _ = await loop.run_in_executor(
-                _executor, fetch_images_from_drive, gdrive_url.strip()
+            drive_imgs, drive_docs, _ = await loop.run_in_executor(
+                _executor, fetch_files_from_drive, gdrive_url.strip()
             )
             raw_images.extend(drive_imgs)
+            raw_pdfs.extend(drive_docs)
         except ValueError as e:
-            return JSONResponse({"error": str(e)}, status_code=400)
+            if not raw_images and not raw_pdfs:
+                return JSONResponse({"error": str(e)}, status_code=400)
 
-    if not raw_images:
-        return JSONResponse({"error": "No images provided."}, status_code=400)
+    if not raw_images and not raw_pdfs:
+        return JSONResponse({"error": "No images or documents provided."}, status_code=400)
 
-    # Resize (don't enhance) for fast analysis
+    # Resize images for fast analysis; PDFs go straight to Claude as-is
     resize_tasks = [
         loop.run_in_executor(_executor, resize_for_analysis, raw)
         for raw in raw_images[:6]
     ]
     resized = await asyncio.gather(*resize_tasks, return_exceptions=True)
-    b64_list = [
-        base64.b64encode(r).decode()
-        for r in resized
-        if isinstance(r, bytes)
-    ]
+    img_b64 = [base64.b64encode(r).decode() for r in resized if isinstance(r, bytes)]
+    pdf_b64 = [base64.b64encode(r).decode() for r in raw_pdfs[:5]]
 
     try:
-        detected = await analyze_car_photos(b64_list)
+        detected = await analyze_car_photos(img_b64, pdf_b64 or None)
         return JSONResponse(detected)
     except Exception as e:
         return JSONResponse({"error": f"Analysis failed: {e}"}, status_code=500)

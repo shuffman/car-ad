@@ -123,6 +123,38 @@ body {
   background: #dee2e6;
 }
 
+/* ── PDF preview tile ── */
+.pdf-item {
+  background: #f8f9fa !important;
+  border: 1px solid #dee2e6;
+}
+.pdf-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  gap: 4px;
+}
+.pdf-preview i {
+  font-size: 1.8rem;
+  color: #dc3545;
+}
+.pdf-preview span {
+  font-size: 0.6rem;
+  color: #6c757d;
+  text-align: center;
+  word-break: break-all;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 /* ── AI badge ── */
 .ai-badge {
   background: #fffbea;

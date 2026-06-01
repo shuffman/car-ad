@@ -6,7 +6,9 @@ from pathlib import Path
 import gdown
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.heif', '.heic'}
+DOCUMENT_EXTENSIONS = {'.pdf'}
 MAX_IMAGES = 20
+MAX_DOCUMENTS = 5
 
 
 def _parse_url(url: str) -> tuple[str, str]:
@@ -29,10 +31,10 @@ def _parse_url(url: str) -> tuple[str, str]:
     )
 
 
-def fetch_images_from_drive(url: str) -> tuple[list[bytes], str]:
+def fetch_files_from_drive(url: str) -> tuple[list[bytes], list[bytes], str]:
     """
-    Download images from a public Google Drive file or folder link.
-    Returns (image_bytes_list, human_readable_status).
+    Download images and PDF documents from a public Google Drive file or folder.
+    Returns (image_bytes_list, pdf_bytes_list, human_readable_status).
     Raises ValueError with a user-friendly message on failure.
     """
     drive_id, drive_type = _parse_url(url)
@@ -55,14 +57,19 @@ def fetch_images_from_drive(url: str) -> tuple[list[bytes], str]:
                     f"({e})"
                 )
 
-            image_paths = []
+            image_paths, doc_paths = [], []
             for root, _, files in os.walk(tmpdir):
                 for fname in sorted(files):
-                    if Path(fname).suffix.lower() in IMAGE_EXTENSIONS:
-                        image_paths.append(os.path.join(root, fname))
+                    ext = Path(fname).suffix.lower()
+                    full = os.path.join(root, fname)
+                    if ext in IMAGE_EXTENSIONS:
+                        image_paths.append(full)
+                    elif ext in DOCUMENT_EXTENSIONS:
+                        doc_paths.append(full)
 
-            total_found = len(image_paths)
+            total_images = len(image_paths)
             image_paths = image_paths[:MAX_IMAGES]
+            doc_paths = doc_paths[:MAX_DOCUMENTS]
 
         else:
             canonical = f"https://drive.google.com/uc?id={drive_id}"
@@ -77,30 +84,44 @@ def fetch_images_from_drive(url: str) -> tuple[list[bytes], str]:
                 )
             if not os.path.exists(out_path):
                 raise ValueError(
-                    "The file download appeared to succeed but no file was saved. "
-                    "The link may point to a page rather than an image."
+                    "The file download appeared to succeed but no file was saved."
                 )
-            image_paths = [out_path]
-            total_found = 1
 
-        image_bytes: list[bytes] = []
-        for path in image_paths:
-            try:
-                data = Path(path).read_bytes()
-                if data:
-                    image_bytes.append(data)
-            except Exception:
-                continue
+            ext = Path(out_path).suffix.lower()
+            raw = Path(out_path).read_bytes()
+            # For single-file links gdown doesn't preserve the extension;
+            # sniff the magic bytes to determine type.
+            if raw[:4] == b'%PDF':
+                image_paths, doc_paths, total_images = [], [out_path], 0
+            else:
+                image_paths, doc_paths, total_images = [out_path], [], 1
 
-        if not image_bytes:
+        def _read(paths: list[str]) -> list[bytes]:
+            result = []
+            for p in paths:
+                try:
+                    data = Path(p).read_bytes()
+                    if data:
+                        result.append(data)
+                except Exception:
+                    continue
+            return result
+
+        images = _read(image_paths)
+        docs = _read(doc_paths)
+
+        if not images and not docs:
             raise ValueError(
-                "No supported image files were found at the Google Drive link. "
-                "Supported formats: JPEG, PNG, WebP, BMP, TIFF."
+                "No supported files were found at the Google Drive link. "
+                "Supported: JPEG, PNG, WebP, BMP, TIFF images and PDF documents."
             )
 
-        count = len(image_bytes)
-        status = f"Downloaded {count} photo{'s' if count != 1 else ''} from Google Drive"
-        if total_found > MAX_IMAGES:
-            status += f" (first {MAX_IMAGES} of {total_found})"
+        parts = []
+        if images:
+            parts.append(f"{len(images)} photo{'s' if len(images) != 1 else ''}")
+            if total_images > MAX_IMAGES:
+                parts[-1] += f" (first {MAX_IMAGES} of {total_images})"
+        if docs:
+            parts.append(f"{len(docs)} PDF document{'s' if len(docs) != 1 else ''}")
 
-        return image_bytes, status
+        return images, docs, "Downloaded " + " and ".join(parts) + " from Google Drive"

@@ -67,18 +67,32 @@ if (document.getElementById('carForm')) {
     dropPrompt.style.display = 'none';
     previewGrid.classList.remove('d-none');
     clearBtn.classList.remove('d-none');
-    photoCount.textContent = `${selectedFiles.length} photo${selectedFiles.length !== 1 ? 's' : ''} selected`;
+    const nPdf = selectedFiles.filter(f => f.name.toLowerCase().endsWith('.pdf')).length;
+    const nImg = selectedFiles.length - nPdf;
+    const parts = [];
+    if (nImg) parts.push(`${nImg} photo${nImg !== 1 ? 's' : ''}`);
+    if (nPdf) parts.push(`${nPdf} PDF${nPdf !== 1 ? 's' : ''}`);
+    photoCount.textContent = parts.join(', ') + ' selected';
 
     previewGrid.innerHTML = '';
     selectedFiles.forEach((file, i) => {
       const div = document.createElement('div');
-      div.className = 'preview-item';
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      div.className = isPdf ? 'preview-item pdf-item' : 'preview-item';
 
-      const img = document.createElement('img');
-      const url = URL.createObjectURL(file);
-      img.src = url;
-      img.alt = file.name;
-      img.onload = () => URL.revokeObjectURL(url);
+      if (isPdf) {
+        const icon = document.createElement('div');
+        icon.className = 'pdf-preview';
+        icon.innerHTML = `<i class="bi bi-file-earmark-pdf-fill"></i><span>${file.name}</span>`;
+        div.appendChild(icon);
+      } else {
+        const img = document.createElement('img');
+        const url = URL.createObjectURL(file);
+        img.src = url;
+        img.alt = file.name;
+        img.onload = () => URL.revokeObjectURL(url);
+        div.appendChild(img);
+      }
 
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -87,7 +101,7 @@ if (document.getElementById('carForm')) {
       btn.textContent = '×';
       btn.addEventListener('click', (e) => { e.stopPropagation(); removeFile(i); });
 
-      div.append(img, btn);
+      div.appendChild(btn);
       previewGrid.appendChild(div);
     });
 
