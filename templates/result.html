@@ -3,223 +3,109 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Listing — CarAd Pro</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>CarAd Pro</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link href="/static/style.css" rel="stylesheet">
 </head>
-<body>
+<body class="workspace-page">
 
-<header class="site-header py-3">
-  <div class="container d-flex align-items-center justify-content-between">
-    <a href="/" class="d-flex align-items-center gap-2 text-decoration-none">
-      <i class="bi bi-car-front-fill fs-3 header-icon"></i>
-      <span class="fw-bold fs-5 text-white">CarAd Pro</span>
-    </a>
-    <a href="/" class="btn btn-outline-light btn-sm">
-      <i class="bi bi-plus-circle me-1"></i>New Listing
-    </a>
-  </div>
-</header>
+  <header class="workspace-header">
+    <a href="/" class="workspace-logo">CarAd Pro</a>
+    <div class="workspace-header-actions">
+      <a href="/" class="header-btn">
+        <i class="bi bi-plus-lg"></i> New Listing
+      </a>
+    </div>
+  </header>
 
-<div class="success-bar py-3 px-3 text-center">
-  <i class="bi bi-check-circle-fill me-2"></i>
-  Your listing is ready —
-  <strong>{{ car_info.year }} {{ car_info.make }} {{ car_info.model }}{% if car_info.trim %} {{ car_info.trim }}{% endif %}</strong>
-</div>
-
-<main class="container my-5">
   {% if drive_error %}
-  <div class="alert alert-warning d-flex align-items-start gap-2 mb-4" role="alert">
-    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
-    <div><strong>Google Drive:</strong> {{ drive_error }}</div>
+  <div class="drive-error-bar">
+    <i class="bi bi-exclamation-triangle-fill"></i> {{ drive_error }}
   </div>
   {% endif %}
-  <div class="row g-4">
 
-    <!-- Photos column -->
-    <div class="col-lg-5">
-      <div class="card shadow-sm">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-images text-primary"></i>
-            <h5 class="mb-0">Enhanced Photos</h5>
-          </div>
-          <span class="badge bg-primary rounded-pill">{{ image_count }} photo{{ 's' if image_count != 1 else '' }}</span>
-        </div>
-        <div class="card-body">
-          {% if image_count > 0 %}
-            <div class="photo-grid" id="photoGrid">
-              {% for i in range(image_count) %}
-                <div class="photo-item" data-index="{{ i }}">
-                  <img src="/image/{{ result_id }}/{{ i }}" alt="Enhanced photo {{ i + 1 }}" loading="lazy">
-                  <div class="photo-overlay">
-                    <button type="button" class="btn btn-sm btn-light" onclick="openLightbox({{ i }})">
-                      <i class="bi bi-fullscreen"></i>
-                    </button>
-                    <a href="/download/{{ result_id }}/{{ i }}" class="btn btn-sm btn-light"
-                       download="enhanced-photo-{{ i + 1 }}.jpg">
-                      <i class="bi bi-download"></i>
-                    </a>
-                  </div>
-                </div>
-              {% endfor %}
-            </div>
-            <div class="mt-3 text-center">
-              <div class="btn-group" role="group">
-                {% for i in range(image_count) %}
-                  <a href="/download/{{ result_id }}/{{ i }}" class="btn btn-outline-secondary btn-sm"
-                     download="enhanced-photo-{{ i + 1 }}.jpg">
-                    <i class="bi bi-download me-1"></i>Photo {{ i + 1 }}
-                  </a>
-                {% endfor %}
-              </div>
-            </div>
-          {% else %}
-            <div class="text-center py-4 text-muted">
-              <i class="bi bi-image fs-2 d-block mb-2"></i>
-              No photos were uploaded.
-            </div>
-          {% endif %}
-        </div>
+  <div class="workspace">
+
+    <!-- ── Photo panel ── -->
+    <div class="photo-panel">
+      <div class="gallery-area">
+        {% if image_count > 0 %}
+          <img id="galleryHero"
+               src="/image/{{ result_id }}/0"
+               alt="Photo 1"
+               class="gallery-hero-img">
+        {% else %}
+          <div class="no-photos">No photos</div>
+        {% endif %}
       </div>
 
-      <!-- Car details summary -->
-      <div class="card shadow-sm mt-4">
-        <div class="card-header d-flex align-items-center gap-2">
-          <i class="bi bi-card-list text-primary"></i>
-          <h5 class="mb-0">Vehicle Summary</h5>
-        </div>
-        <div class="card-body">
-          <dl class="row mb-0 small">
-            {% if car_info.vin %}
-              <dt class="col-5 text-muted">VIN</dt>
-              <dd class="col-7">{{ car_info.vin }}</dd>
-            {% endif %}
-            {% if car_info.mileage %}
-              <dt class="col-5 text-muted">Mileage</dt>
-              <dd class="col-7">{{ car_info.mileage }}</dd>
-            {% endif %}
-            {% if car_info.price %}
-              <dt class="col-5 text-muted">Asking Price</dt>
-              <dd class="col-7">${{ car_info.price }}</dd>
-            {% endif %}
-            {% if car_info.exterior_color %}
-              <dt class="col-5 text-muted">Ext. Color</dt>
-              <dd class="col-7">{{ car_info.exterior_color }}</dd>
-            {% endif %}
-            {% if car_info.interior_color %}
-              <dt class="col-5 text-muted">Int. Color</dt>
-              <dd class="col-7">{{ car_info.interior_color }}</dd>
-            {% endif %}
-            {% if car_info.condition %}
-              <dt class="col-5 text-muted">Condition</dt>
-              <dd class="col-7">{{ car_info.condition }}</dd>
-            {% endif %}
-            {% if car_info.transmission %}
-              <dt class="col-5 text-muted">Transmission</dt>
-              <dd class="col-7">{{ car_info.transmission }}</dd>
-            {% endif %}
-            {% if car_info.drivetrain %}
-              <dt class="col-5 text-muted">Drivetrain</dt>
-              <dd class="col-7">{{ car_info.drivetrain }}</dd>
-            {% endif %}
-            {% if car_info.engine %}
-              <dt class="col-5 text-muted">Engine</dt>
-              <dd class="col-7">{{ car_info.engine }}</dd>
-            {% endif %}
-          </dl>
-        </div>
+      {% if image_count > 1 %}
+      <div class="thumb-strip">
+        {% for i in range(image_count) %}
+          <button class="thumb-btn {% if i == 0 %}active{% endif %}"
+                  data-index="{{ i }}"
+                  onclick="showPhoto(this, {{ i }})">
+            <img src="/image/{{ result_id }}/{{ i }}" alt="">
+          </button>
+        {% endfor %}
       </div>
-    </div>
+      {% endif %}
 
-    <!-- Listing text column -->
-    <div class="col-lg-7">
-      <div class="card shadow-sm">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-file-earmark-text text-primary"></i>
-            <h5 class="mb-0">AI-Generated Listing</h5>
-          </div>
-          <div class="d-flex gap-2">
-            <button id="copyBtn" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-clipboard me-1"></i>Copy
-            </button>
-            <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
-              <i class="bi bi-printer me-1"></i>Print
-            </button>
-          </div>
+      <div class="photo-toolbar">
+        <span class="toolbar-label">Enhance</span>
+        <div class="preset-group">
+          <button class="preset-btn {% if enhance_preset == 'natural' %}active{% endif %}"
+                  data-preset="natural">Natural</button>
+          <button class="preset-btn {% if enhance_preset == 'standard' %}active{% endif %}"
+                  data-preset="standard">Standard</button>
+          <button class="preset-btn {% if enhance_preset == 'vivid' %}active{% endif %}"
+                  data-preset="vivid">Vivid</button>
+          <button class="preset-btn {% if enhance_preset == 'bold' %}active{% endif %}"
+                  data-preset="bold">Bold</button>
         </div>
-        <div class="card-body">
-          <div id="listingText" class="listing-prose"></div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /row -->
-
-  <!-- Deploy to forsale -->
-  <div class="row mt-4 d-print-none">
-    <div class="col-12">
-      <div class="deploy-bar d-flex align-items-center justify-content-between gap-3 p-4 rounded">
-        <div>
-          <div class="fw-semibold mb-1">
-            <i class="bi bi-github me-2"></i>Publish to forsale page
-          </div>
-          <div class="small text-muted">
-            Pushes enhanced photos + listing to
-            <a href="https://shuffman.github.io/forsale/" target="_blank" class="text-muted">shuffman.github.io/forsale</a>
-            via GitHub Pages
-          </div>
-        </div>
-        <button id="deployBtn" class="btn btn-dark btn-lg flex-shrink-0">
-          <i class="bi bi-cloud-arrow-up me-2"></i>Publish Now
-        </button>
-      </div>
-      <div id="deployResult" class="mt-3 d-none"></div>
-    </div>
-  </div>
-
-</main>
-
-<footer class="border-top text-center py-4 text-muted mt-5 d-print-none">
-  <small>Powered by <strong>Claude AI</strong> &amp; CarAd Pro</small>
-</footer>
-
-<!-- Lightbox modal -->
-<div class="modal fade" id="lightboxModal" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content bg-dark border-0">
-      <div class="modal-header border-0 pb-0">
-        <span class="text-white" id="lightboxCaption"></span>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body text-center p-2">
-        <img id="lightboxImg" src="" alt="" class="img-fluid rounded" style="max-height:80vh;object-fit:contain">
-      </div>
-      <div class="modal-footer border-0 pt-0 justify-content-center gap-2">
-        <button class="btn btn-outline-light btn-sm" id="lightboxPrev">
-          <i class="bi bi-chevron-left"></i> Previous
-        </button>
-        <a id="lightboxDownload" href="#" class="btn btn-light btn-sm" download>
-          <i class="bi bi-download me-1"></i>Download
+        <a id="downloadBtn"
+           href="/download/{{ result_id }}/0"
+           class="icon-btn ms-auto"
+           download
+           title="Download current photo">
+          <i class="bi bi-download"></i>
         </a>
-        <button class="btn btn-outline-light btn-sm" id="lightboxNext">
-          Next <i class="bi bi-chevron-right"></i>
-        </button>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- Pass data to JS -->
-<script>
-  const RESULT_ID = "{{ result_id }}";
-  const IMAGE_COUNT = {{ image_count }};
-  const RAW_LISTING = {{ listing_text | tojson }};
-</script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
-<script src="/static/app.js"></script>
+    <!-- ── Content panel ── -->
+    <div class="content-panel">
+
+      <div class="content-toolbar">
+        <button id="regenerateBtn" class="toolbar-btn">
+          <i class="bi bi-arrow-clockwise"></i> Regenerate
+        </button>
+        <button id="copyBtn" class="toolbar-btn">
+          <i class="bi bi-clipboard"></i> Copy
+        </button>
+        <div class="toolbar-spacer"></div>
+        <button id="publishBtn" class="toolbar-btn primary">
+          <i class="bi bi-github"></i> Publish to forsale
+        </button>
+      </div>
+
+      <div id="listingEditor"
+           class="listing-editor"
+           contenteditable="true"
+           spellcheck="true"></div>
+
+      <div id="publishStatus" class="publish-status hidden"></div>
+
+    </div>
+  </div>
+
+  <script>
+    const RESULT_ID = "{{ result_id }}";
+    const IMAGE_COUNT = {{ image_count }};
+    const RAW_LISTING = {{ listing_text | tojson }};
+    const ENHANCE_PRESET = "{{ enhance_preset }}";
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <script src="/static/app.js"></script>
 </body>
 </html>

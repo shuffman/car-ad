@@ -3,73 +3,62 @@ import io
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 MAX_DIMENSION = 2400
-ANALYSIS_DIMENSION = 1024  # smaller size for fast Claude vision calls
+ANALYSIS_DIMENSION = 1024
+
+# brightness, contrast, color, sharpness, unsharp_percent
+PRESETS: dict[str, tuple[float, float, float, float, int]] = {
+    "natural":  (1.03, 1.08, 1.10, 1.25, 40),
+    "standard": (1.06, 1.18, 1.22, 1.50, 65),
+    "vivid":    (1.08, 1.30, 1.38, 1.65, 85),
+    "bold":     (1.10, 1.42, 1.52, 1.80, 110),
+}
 
 
-def enhance_image(image_bytes: bytes) -> bytes:
-    img = Image.open(io.BytesIO(image_bytes))
-
-    # Fix EXIF rotation (phone photos are often rotated)
+def _normalize(img: Image.Image) -> Image.Image:
     img = ImageOps.exif_transpose(img)
-
-    # Normalize to RGB
     if img.mode == "RGBA":
         bg = Image.new("RGB", img.size, (255, 255, 255))
         bg.paste(img, mask=img.split()[3])
-        img = bg
-    elif img.mode != "RGB":
-        img = img.convert("RGB")
+        return bg
+    if img.mode != "RGB":
+        return img.convert("RGB")
+    return img
 
-    # Resize if very large (saves memory and speeds up Claude vision)
+
+def enhance_image(image_bytes: bytes, preset: str = "standard") -> bytes:
+    brightness, contrast, color, sharpness, unsharp_pct = PRESETS.get(preset, PRESETS["standard"])
+
+    img = Image.open(io.BytesIO(image_bytes))
+    img = _normalize(img)
+
     if max(img.size) > MAX_DIMENSION:
         ratio = MAX_DIMENSION / max(img.size)
         img = img.resize(
-            (int(img.width * ratio), int(img.height * ratio)),
-            Image.LANCZOS,
+            (int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS
         )
 
-    # Auto-contrast: stretch histogram with 1% cutoff on each end
     img = ImageOps.autocontrast(img, cutoff=1)
+    img = ImageEnhance.Brightness(img).enhance(brightness)
+    img = ImageEnhance.Contrast(img).enhance(contrast)
+    img = ImageEnhance.Color(img).enhance(color)
+    img = ImageEnhance.Sharpness(img).enhance(sharpness)
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.5, percent=unsharp_pct, threshold=3))
 
-    # Brightness: subtle lift so shadows don't crush
-    img = ImageEnhance.Brightness(img).enhance(1.06)
-
-    # Contrast punch
-    img = ImageEnhance.Contrast(img).enhance(1.18)
-
-    # Color saturation — makes paint and interior pop
-    img = ImageEnhance.Color(img).enhance(1.22)
-
-    # Sharpness — crisp edges on body lines
-    img = ImageEnhance.Sharpness(img).enhance(1.50)
-
-    # Unsharp mask for fine detail (grille, wheels, trim)
-    img = img.filter(ImageFilter.UnsharpMask(radius=1.5, percent=65, threshold=3))
-
-    output = io.BytesIO()
-    img.save(output, format="JPEG", quality=92, optimize=True)
-    return output.getvalue()
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=92, optimize=True)
+    return out.getvalue()
 
 
 def resize_for_analysis(image_bytes: bytes) -> bytes:
-    """Shrink and normalize an image for fast Claude vision analysis (no enhancement)."""
     img = Image.open(io.BytesIO(image_bytes))
-    img = ImageOps.exif_transpose(img)
-
-    if img.mode == "RGBA":
-        bg = Image.new("RGB", img.size, (255, 255, 255))
-        bg.paste(img, mask=img.split()[3])
-        img = bg
-    elif img.mode != "RGB":
-        img = img.convert("RGB")
+    img = _normalize(img)
 
     if max(img.size) > ANALYSIS_DIMENSION:
         ratio = ANALYSIS_DIMENSION / max(img.size)
         img = img.resize(
-            (int(img.width * ratio), int(img.height * ratio)),
-            Image.LANCZOS,
+            (int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS
         )
 
-    output = io.BytesIO()
-    img.save(output, format="JPEG", quality=82)
-    return output.getvalue()
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=82)
+    return out.getvalue()

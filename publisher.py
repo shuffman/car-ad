@@ -69,6 +69,7 @@ async def deploy_listing(
     car_info: dict,
     enhanced_images: list[bytes],
     listing_text: str,
+    listing_html: str | None = None,
 ) -> str:
     """
     Write images + listing page + update index to the forsale repo.
@@ -89,7 +90,7 @@ async def deploy_listing(
             )
 
         # 2. Create/update listing page
-        page_html = _render_listing_page(slug, car_info, listing_text, len(enhanced_images))
+        page_html = _render_listing_page(slug, car_info, listing_text, len(enhanced_images), listing_html)
         await _put_file(
             client,
             f"items/{slug}/index.html",
@@ -167,6 +168,7 @@ def _render_listing_page(
     car_info: dict,
     listing_text: str,
     n_images: int,
+    listing_html: str | None = None,
 ) -> str:
     title = _title(car_info)
     price_str = f"${car_info['price']}" if car_info.get("price") else "Contact for price"
@@ -208,7 +210,7 @@ def _render_listing_page(
                 f'            </div>\n'
             )
 
-    desc_html = _md_to_html(listing_text)
+    desc_html = listing_html if listing_html else _md_to_html(listing_text)
     subject = quote(f"Inquiry: {title}")
 
     inquiry_details = ""
