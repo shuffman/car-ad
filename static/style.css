@@ -596,30 +596,44 @@ body.workspace-page {
 .refine-bar {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid var(--border-l);
   background: #fafafa;
 }
-.refine-bar input {
-  flex: 1;
-  padding: 0.45rem 0.75rem;
+.refine-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #999;
+}
+.refine-bar textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-l);
   border-radius: 5px;
-  font-size: 0.82rem;
-  outline: none;
+  font-size: 0.85rem;
+  font-family: inherit;
+  line-height: 1.5;
   color: var(--text);
   background: #fff;
+  resize: vertical;
+  outline: none;
   transition: border-color 0.15s;
 }
-.refine-bar input:focus { border-color: #aaa; }
-.refine-bar input::placeholder { color: #aaa; }
+.refine-bar textarea:focus { border-color: #aaa; }
+.refine-bar textarea::placeholder { color: #bbb; }
+.refine-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 .refine-bar button {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.45rem 0.9rem;
+  padding: 0.4rem 1rem;
   background: var(--dark);
   color: #fff;
   border: none;
@@ -628,7 +642,6 @@ body.workspace-page {
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
-  flex-shrink: 0;
 }
 .refine-bar button:hover { background: #2a2a2a; }
 .refine-bar button:disabled { opacity: 0.5; cursor: default; }

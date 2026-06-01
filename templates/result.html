@@ -100,11 +100,14 @@
       <div id="publishStatus" class="publish-status hidden"></div>
 
       <div class="refine-bar">
-        <input id="refineInput" type="text"
-               placeholder="Correct or add info — e.g. 'Mileage is 45k, it has a sunroof, asking $28,500'">
-        <button id="refineBtn">
-          <i class="bi bi-pencil-square"></i> Apply
-        </button>
+        <label class="refine-label">Notes &amp; corrections</label>
+        <textarea id="refineInput" rows="3"
+                  placeholder="Correct or add info — e.g. 'Mileage is 45k, it has a sunroof, asking $28,500'. Used when regenerating too."></textarea>
+        <div class="refine-actions">
+          <button id="refineBtn">
+            <i class="bi bi-pencil-square"></i> Apply to listing
+          </button>
+        </div>
       </div>
 
     </div>

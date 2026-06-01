@@ -274,7 +274,11 @@ if (typeof RAW_LISTING !== 'undefined') {
     if (editor) editor.style.opacity = '0.35';
 
     try {
-      const res = await fetch(`/regenerate/${RESULT_ID}`, { method: 'POST' });
+      const res = await fetch(`/regenerate/${RESULT_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extra_info: refineInput?.value.trim() || '' }),
+      });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       if (editor) editor.innerHTML = marked.parse(data.listing_text);
@@ -302,6 +306,15 @@ if (typeof RAW_LISTING !== 'undefined') {
   // ── Refine with corrections ──
   const refineInput = document.getElementById('refineInput');
   const refineBtn   = document.getElementById('refineBtn');
+  const REFINE_KEY  = 'carad_refine_notes';
+
+  // Restore saved notes
+  if (refineInput) {
+    refineInput.value = localStorage.getItem(REFINE_KEY) || '';
+    refineInput.addEventListener('input', () => {
+      localStorage.setItem(REFINE_KEY, refineInput.value);
+    });
+  }
 
   async function applyRefinement() {
     const correction = refineInput?.value.trim();
@@ -323,20 +336,16 @@ if (typeof RAW_LISTING !== 'undefined') {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       if (editor) editor.innerHTML = marked.parse(data.listing_text);
-      if (refineInput) refineInput.value = '';
     } catch (e) {
       alert('Could not apply correction: ' + e.message);
     } finally {
       refineBtn.disabled = false;
-      refineBtn.innerHTML = '<i class="bi bi-pencil-square"></i> Apply';
+      refineBtn.innerHTML = '<i class="bi bi-pencil-square"></i> Apply to listing';
       if (editor) editor.style.opacity = '1';
     }
   }
 
   refineBtn?.addEventListener('click', applyRefinement);
-  refineInput?.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); applyRefinement(); }
-  });
 
   // ── Download zip ──
   document.getElementById('downloadZipBtn')?.addEventListener('click', async () => {

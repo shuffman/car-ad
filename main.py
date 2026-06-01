@@ -240,18 +240,27 @@ async def progress_stream(job_id: str):
 # ── Regenerate listing text ────────────────────────────────────────────────────
 
 @app.post("/regenerate/{result_id}")
-async def regenerate(result_id: str):
+async def regenerate(result_id: str, request: Request):
     data = _results.get(result_id)
     if not data:
         return JSONResponse({"error": "Result not found."}, status_code=404)
+
+    body: dict = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    # Prefer notes sent from the client (latest from the textarea),
+    # fall back to what was submitted with the original form.
+    extra_info = body.get("extra_info", "").strip() or data.get("extra_info") or None
 
     img_b64 = [base64.b64encode(img).decode() for img in data["images"][:4]]
     pdf_b64 = [base64.b64encode(d).decode() for d in data.get("pdfs", [])[:5]]
 
     try:
         listing_text = await generate_listing(
-            data["car_info"], img_b64, pdf_b64 or None,
-            data.get("extra_info") or None,
+            data["car_info"], img_b64, pdf_b64 or None, extra_info,
         )
         data["listing_text"] = listing_text
         return JSONResponse({"listing_text": listing_text})
